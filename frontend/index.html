@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vehicle Rental ML Dashboard</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Catamaran:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div class="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">🚗</div>
+        <div class="brand-text">
+          <div class="brand-title">QucikRide Rental Dashboard</div>
+          <div class="brand-sub">Season: Oct–Mar • Sri Lanka</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a class="nav-item active" href="#todayStats">Today Snapshot</a>
+        <a class="nav-item" href="#dailyPrediction">Daily Revenue</a>
+        <a class="nav-item" href="#vehiclePrediction">Vehicle Revenue</a>
+        <a class="nav-item" href="#vehicleCompare">Compare Vehicles</a>
+        <!-- ✅ NEW -->
+        <a class="nav-item" href="#demandRecommendation">Demand Recommendation</a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="conn">
+          <span class="dot" id="backendDot"></span>
+          <div class="conn-text">
+            <div class="conn-title" id="backendText">Checking backend…</div>
+            <div class="conn-sub">FastAPI health check</div>
+          </div>
+        </div>
+
+        <div class="sidebar-note">
+          Tip: Pick a date → predict → compare vehicles for the same day.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="top-left">
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Daily & vehicle revenue prediction using ML models</div>
+        </div>
+
+        <div class="top-right">
+          <div class="pill">
+            <div class="pill-title" id="clockDate">—</div>
+            <div class="pill-sub" id="clockTime">—</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <section class="content">
+
+        <!-- Today Snapshot -->
+        <section class="card" id="todayStats">
+          <div class="card-head">
+            <div>
+              <h2>Today Snapshot</h2>
+              <p class="muted">Quick predicted overview using today’s date.</p>
+            </div>
+            <div class="badge" id="todayBadge">—</div>
+          </div>
+
+          <div class="status muted" id="todayStatus">Loading…</div>
+
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-label">Today's Predicted Revenue</div>
+              <div class="stat-value" id="todayRevenueValue">—</div>
+              <div class="stat-sub">Total revenue estimate</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Season</div>
+              <div class="stat-value" id="todaySeasonValue">—</div>
+              <div class="stat-sub">Oct–Mar = Season</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Weekend</div>
+              <div class="stat-value" id="todayWeekendValue">—</div>
+              <div class="stat-sub">Sat/Sun flag</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Grid: Daily + Vehicle -->
+        <div class="grid-2">
+
+          <!-- Daily Revenue Prediction -->
+          <section class="card" id="dailyPrediction">
+            <div class="card-head">
+              <div>
+                <h2>Daily Revenue Prediction</h2>
+                <p class="muted">Predict total daily revenue (LKR) for a selected date.</p>
+              </div>
+            </div>
+
+            <div class="form">
+              <div class="field">
+                <label for="datePick">Select Date</label>
+                <input type="date" id="datePick" min="" />
+              </div>
+
+              <button class="btn primary" onclick="predictRevenue()">Predict Revenue</button>
+
+              <div class="status muted" id="predictStatus">Waiting for input…</div>
+
+              <div class="stats small">
+                <div class="stat">
+                  <div class="stat-label">Predicted Revenue</div>
+                  <div class="stat-value" id="predValue">—</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Season</div>
+                  <div class="stat-value" id="seasonValue">—</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Weekend</div>
+                  <div class="stat-value" id="weekendValue">—</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Vehicle Revenue Prediction -->
+          <section class="card" id="vehiclePrediction">
+            <div class="card-head">
+              <div>
+                <h2>Vehicle Revenue Prediction</h2>
+                <p class="muted">Predict revenue for a specific vehicle type on a selected date.</p>
+              </div>
+            </div>
+
+            <div class="form">
+              <div class="field">
+                <label for="vehicleDatePick">Select Date</label>
+                <input type="date" id="vehicleDatePick" min="" />
+              </div>
+
+              <div class="field">
+                <label for="vehicleTypePick">Select Vehicle Type</label>
+                <select id="vehicleTypePick"></select>
+                <div class="help">Vehicle types are loaded from <code>/vehicles</code></div>
+              </div>
+
+              <button class="btn primary" onclick="predictVehicleRevenue()">Predict Vehicle Revenue</button>
+
+              <div class="status muted" id="vehicleStatus">Waiting for input…</div>
+
+              <div class="stats small">
+                <div class="stat">
+                  <div class="stat-label">Predicted Vehicle Revenue</div>
+                  <div class="stat-value" id="vehiclePredValue">—</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Season</div>
+                  <div class="stat-value" id="vehicleSeasonValue">—</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Weekend</div>
+                  <div class="stat-value" id="vehicleWeekendValue">—</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Compare Vehicles -->
+        <section class="card" id="vehicleCompare">
+          <div class="card-head">
+            <div>
+              <h2>Compare Vehicles (Same Date)</h2>
+              <p class="muted">For the selected date, compare predicted revenue for Car / Bike / Tuk Tuk.</p>
+            </div>
+            <button class="btn" onclick="compareVehicleTypes()">Compare Now</button>
+          </div>
+
+          <div class="status muted" id="vehicleCompareStatus">
+            Select a date in “Vehicle Revenue Prediction” then click Compare.
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="vehicleCompareChart"></canvas>
+          </div>
+        </section>
+
+        <!-- ✅ NEW: Demand-based Recommendation -->
+        <section class="card" id="demandRecommendation">
+          <div class="card-head">
+            <div>
+              <h2>Demand Recommendation (Bookings)</h2>
+            </div>
+            <button class="btn" onclick="recommendDemand()">Recommend Now</button>
+          </div>
+
+          <div class="form">
+            <div class="field">
+              <label for="demandDatePick">Select Date</label>
+              <input type="date" id="demandDatePick" min="" />
+              <div class="help">Uses API: <code>/recommend/demand</code></div>
+            </div>
+
+            <div class="status muted" id="demandStatus">
+              Pick a date and click “Recommend Now”.
+            </div>
+
+            <div class="stats small">
+              <div class="stat">
+                <div class="stat-label">Recommended Vehicle</div>
+                <div class="stat-value" id="demandRecommended">—</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Season</div>
+                <div class="stat-value" id="demandSeason">—</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Weekend</div>
+                <div class="stat-value" id="demandWeekend">—</div>
+              </div>
+            </div>
+
+            <div class="chart-wrap">
+              <canvas id="demandChart"></canvas>
+            </div>
+          </div>
+        </section>
+
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div>© Vehicle Rental ML Dashboard</div>
+      </footer>
+
+    </main>
+  </div>
+
+<script>
+  // ========= CONFIG =========
+  const API_BASE = "http://127.0.0.1:8003";
+
+  // ========= HELPERS =========
+  function formatLKR(val){
+    const n = Number(val);
+    if(Number.isNaN(n)) return "—";
+    return "LKR " + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatCount(val){
+    const n = Number(val);
+    if(Number.isNaN(n)) return "—";
+    // keep 2 decimals because model can output float
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function setStatus(id, text, isError=false){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = text;
+    el.classList.toggle("error", !!isError);
+  }
+
+  function updateDateTime(){
+    const now = new Date();
+    const d = now.toLocaleDateString(undefined, { weekday:"long", year:"numeric", month:"short", day:"2-digit" });
+    const t = now.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+    document.getElementById("clockDate").textContent = d;
+    document.getElementById("clockTime").textContent = t;
+  }
+
+  // ========= BACKEND CONNECTION =========
+  async function checkBackendConnection(){
+    try{
+      const res = await fetch(`${API_BASE}/health`);
+      const data = await res.json();
+      const ok = !!data.status;
+      document.getElementById("backendDot").classList.toggle("ok", ok);
+      document.getElementById("backendText").textContent = ok ? "Backend Connected" : "Backend issue";
+    }catch(e){
+      document.getElementById("backendDot").classList.remove("ok");
+      document.getElementById("backendText").textContent = "Backend Offline";
+    }
+  }
+
+  // ========= LOAD VEHICLE TYPES =========
+  function normVehicleName(s){
+    return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
+  }
+
+  async function loadVehicleTypes(){
+    try{
+      const res = await fetch(`${API_BASE}/vehicles`);
+      const data = await res.json();
+      const sel = document.getElementById("vehicleTypePick");
+      sel.innerHTML = "";
+
+      const arr = (data.vehicle_types || []).filter(v => v && normVehicleName(v) !== "all");
+
+      arr.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        sel.appendChild(opt);
+      });
+
+      if(arr.length === 0){
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No vehicle types found";
+        sel.appendChild(opt);
+      }
+    }catch(e){
+      setStatus("vehicleStatus", "Cannot load vehicle types. Check backend /vehicles.", true);
+    }
+  }
+
+  // ========= TODAY SNAPSHOT =========
+  async function loadTodayStats(){
+    const today = new Date().toISOString().slice(0,10);
+    try{
+      const res = await fetch(`${API_BASE}/predict/revenue?date=${encodeURIComponent(today)}`);
+      const data = await res.json();
+      if(data.error){
+        setStatus("todayStatus", "API Error: " + data.error, true);
+        return;
+      }
+
+      document.getElementById("todayRevenueValue").textContent = formatLKR(data.predicted_revenue_lkr);
+      document.getElementById("todaySeasonValue").textContent = (data.is_season === 1) ? "Season (Oct–Mar)" : "Non-Season (Apr–Sep)";
+      document.getElementById("todayWeekendValue").textContent = (data.is_weekend === 1) ? "Weekend" : "Weekday";
+
+      document.getElementById("todayBadge").textContent = today;
+      setStatus("todayStatus", `Updated ✅`);
+    }catch(e){
+      setStatus("todayStatus", "Cannot connect to API. Make sure FastAPI is running.", true);
+    }
+  }
+
+  // ========= DAILY PREDICT =========
+  async function predictRevenue(){
+    const date = document.getElementById("datePick").value;
+    if(!date){
+      setStatus("predictStatus", "Please select a date first.", true);
+      return;
+    }
+
+    try{
+      setStatus("predictStatus", "Predicting…");
+      const res = await fetch(`${API_BASE}/predict/revenue?date=${encodeURIComponent(date)}`);
+      const data = await res.json();
+
+      if(data.error){
+        setStatus("predictStatus", "API Error: " + data.error, true);
+        return;
+      }
+
+      document.getElementById("predValue").textContent = formatLKR(data.predicted_revenue_lkr);
+      document.getElementById("seasonValue").textContent = (data.is_season === 1) ? "Season (Oct–Mar)" : "Non-Season (Apr–Sep)";
+      document.getElementById("weekendValue").textContent = (data.is_weekend === 1) ? "Weekend" : "Weekday";
+      setStatus("predictStatus", "Prediction successful ✅");
+    }catch(e){
+      setStatus("predictStatus", "Cannot connect to API. Make sure FastAPI is running.", true);
+    }
+  }
+
+  // ========= VEHICLE PREDICT =========
+  async function predictVehicleRevenue(){
+    const date = document.getElementById("vehicleDatePick").value;
+    const vehicle = document.getElementById("vehicleTypePick").value;
+
+    if(!date){
+      setStatus("vehicleStatus", "Please select a date first.", true);
+      return;
+    }
+    if(!vehicle){
+      setStatus("vehicleStatus", "Please select a vehicle type first.", true);
+      return;
+    }
+
+    try{
+      setStatus("vehicleStatus", "Predicting…");
+      const url = `${API_BASE}/predict/vehicle-revenue?date=${encodeURIComponent(date)}&vehicle_type=${encodeURIComponent(vehicle)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if(data.error){
+        setStatus("vehicleStatus", "API Error: " + data.error, true);
+        return;
+      }
+
+      document.getElementById("vehiclePredValue").textContent = formatLKR(data.predicted_vehicle_revenue_lkr);
+      document.getElementById("vehicleSeasonValue").textContent = (data.is_season === 1) ? "Season (Oct–Mar)" : "Non-Season (Apr–Sep)";
+      document.getElementById("vehicleWeekendValue").textContent = (data.is_weekend === 1) ? "Weekend" : "Weekday";
+
+      setStatus("vehicleStatus", "Vehicle prediction successful ✅");
+    }catch(e){
+      setStatus("vehicleStatus", "Cannot connect to API. Make sure FastAPI is running.", true);
+    }
+  }
+
+  // ========= COMPARE VEHICLES CHART =========
+  let vehicleCompareChart = null;
+
+  function pickDefaultVehicleTypes(options){
+    const target = ["Car", "Bike", "Tuk Tuk"];
+    const picked = [];
+    const normalizedMap = new Map(options.map(v => [normVehicleName(v), v]));
+    for(const t of target){
+      const key = normVehicleName(t);
+      if(normalizedMap.has(key)) picked.push(normalizedMap.get(key));
+    }
+    const rest = options.filter(v => normVehicleName(v) !== "all" && !picked.includes(v));
+    while(picked.length < 3 && rest.length > 0){
+      picked.push(rest.shift());
+    }
+    return picked;
+  }
+
+  async function compareVehicleTypes(){
+    const date = document.getElementById("vehicleDatePick").value;
+    if(!date){
+      setStatus("vehicleCompareStatus", "Select a date in Vehicle Revenue Prediction first.", true);
+      return;
+    }
+
+    const opts = Array.from(document.querySelectorAll("#vehicleTypePick option"))
+      .map(o => o.value)
+      .filter(v => v && normVehicleName(v) !== "all");
+
+    if(opts.length === 0){
+      setStatus("vehicleCompareStatus", "Vehicle types not loaded. Check backend /vehicles.", true);
+      return;
+    }
+
+    const vehicles = pickDefaultVehicleTypes(opts);
+
+    try{
+      setStatus("vehicleCompareStatus", "Loading predictions…");
+
+      const results = await Promise.all(
+        vehicles.map(async (vehicle) => {
+          const url = `${API_BASE}/predict/vehicle-revenue?date=${encodeURIComponent(date)}&vehicle_type=${encodeURIComponent(vehicle)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if(data.error) throw new Error(data.error);
+          return { vehicle, value: Number(data.predicted_vehicle_revenue_lkr) };
+        })
+      );
+
+      const labels = results.map(r => r.vehicle);
+      const values = results.map(r => r.value);
+
+      let bestIdx = 0;
+      for(let i=1;i<values.length;i++){
+        if(values[i] > values[bestIdx]) bestIdx = i;
+      }
+
+      const bestVehicle = labels[bestIdx];
+      const bestValue = values[bestIdx];
+
+      const ctx = document.getElementById("vehicleCompareChart").getContext("2d");
+      if(vehicleCompareChart) vehicleCompareChart.destroy();
+
+      vehicleCompareChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Predicted Revenue (LKR)",
+            data: values
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: function(context){
+                  return " " + formatLKR(context.parsed.y);
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: function(value){ return formatLKR(value); }
+              }
+            }
+          }
+        }
+      });
+
+      setStatus("vehicleCompareStatus", `Best for ${date}: ${bestVehicle} (${formatLKR(bestValue)}) ✅`);
+    }catch(e){
+      setStatus("vehicleCompareStatus", "API Error: " + e.message, true);
+    }
+  }
+
+  // ========= NEW: Demand Recommendation =========
+  let demandChart = null;
+
+  async function recommendDemand(){
+    // date only
+    let date = document.getElementById("demandDatePick").value;
+
+    // convenience: if empty, try to reuse vehicleDatePick
+    if(!date){
+      const vDate = document.getElementById("vehicleDatePick").value;
+      if(vDate) date = vDate;
+    }
+
+    if(!date){
+      setStatus("demandStatus", "Please select a date first.", true);
+      return;
+    }
+
+    try{
+      setStatus("demandStatus", "Recommending…");
+      const url = `${API_BASE}/recommend/demand?date=${encodeURIComponent(date)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if(data.error){
+        setStatus("demandStatus", "API Error: " + data.error, true);
+        return;
+      }
+
+      document.getElementById("demandRecommended").textContent = data.recommended_vehicle || "—";
+      document.getElementById("demandSeason").textContent = (data.is_season === 1) ? "Season (Oct–Mar)" : "Non-Season (Apr–Sep)";
+      document.getElementById("demandWeekend").textContent = (data.is_weekend === 1) ? "Weekend" : "Weekday";
+
+      const preds = data.predictions || [];
+      const labels = preds.map(p => p.vehicle_type);
+      const values = preds.map(p => Number(p.predicted_bookings));
+
+      const ctx = document.getElementById("demandChart").getContext("2d");
+      if(demandChart) demandChart.destroy();
+
+      demandChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Predicted Bookings (Count)",
+            data: values
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: function(context){
+                  return " " + formatCount(context.parsed.y);
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value){ return formatCount(value); }
+              }
+            }
+          }
+        }
+      });
+
+      setStatus("demandStatus", `Recommended for ${date}: ${data.recommended_vehicle} ✅`);
+    }catch(e){
+      setStatus("demandStatus", "Cannot connect to API. Make sure FastAPI is running.", true);
+    }
+  }
+
+  // ========= ACTIVE NAV HIGHLIGHT =========
+  const navLinks = document.querySelectorAll(".nav-item");
+  function setActiveByHash(){
+    const hash = window.location.hash || "#todayStats";
+    navLinks.forEach(a => a.classList.toggle("active", a.getAttribute("href") === hash));
+  }
+  window.addEventListener("hashchange", setActiveByHash);
+
+  // ========= SET DATE VALIDATION (prevent past dates) =========
+  function setMinDates(){
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    document.getElementById("datePick").min = todayStr;
+    document.getElementById("vehicleDatePick").min = todayStr;
+    document.getElementById("demandDatePick").min = todayStr;
+  }
+
+  // ========= INIT =========
+  window.addEventListener("load", function(){
+    setMinDates();
+    setActiveByHash();
+    updateDateTime();
+    loadVehicleTypes();
+    loadTodayStats();
+    checkBackendConnection();
+
+    setInterval(updateDateTime, 1000);
+    setInterval(checkBackendConnection, 5000);
+  });
+</script>
+
+</body>
+</html>
