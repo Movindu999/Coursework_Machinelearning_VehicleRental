@@ -35,7 +35,6 @@
         <a class="nav-item" href="#dailyPrediction">Daily Revenue</a>
         <a class="nav-item" href="#vehiclePrediction">Vehicle Revenue</a>
         <a class="nav-item" href="#vehicleCompare">Compare Vehicles</a>
-        <!-- ✅ NEW -->
         <a class="nav-item" href="#demandRecommendation">Demand Recommendation</a>
       </nav>
 
@@ -208,7 +207,6 @@
           </div>
         </section>
 
-        <!-- ✅ NEW: Demand-based Recommendation -->
         <section class="card" id="demandRecommendation">
           <div class="card-head">
             <div>
@@ -260,10 +258,8 @@
   </div>
 
 <script>
-  // ========= CONFIG =========
   const API_BASE = "http://127.0.0.1:8003";
 
-  // ========= HELPERS =========
   function formatLKR(val){
     const n = Number(val);
     if(Number.isNaN(n)) return "—";
@@ -292,7 +288,6 @@
     document.getElementById("clockTime").textContent = t;
   }
 
-  // ========= BACKEND CONNECTION =========
   async function checkBackendConnection(){
     try{
       const res = await fetch(`${API_BASE}/health`);
@@ -338,7 +333,6 @@
     }
   }
 
-  // ========= TODAY SNAPSHOT =========
   async function loadTodayStats(){
     const today = new Date().toISOString().slice(0,10);
     try{
@@ -360,7 +354,6 @@
     }
   }
 
-  // ========= DAILY PREDICT =========
   async function predictRevenue(){
     const date = document.getElementById("datePick").value;
     if(!date){
@@ -387,7 +380,6 @@
     }
   }
 
-  // ========= VEHICLE PREDICT =========
   async function predictVehicleRevenue(){
     const date = document.getElementById("vehicleDatePick").value;
     const vehicle = document.getElementById("vehicleTypePick").value;
@@ -422,7 +414,6 @@
     }
   }
 
-  // ========= COMPARE VEHICLES CHART =========
   let vehicleCompareChart = null;
 
   function pickDefaultVehicleTypes(options){
@@ -523,7 +514,6 @@
     }
   }
 
-  // ========= NEW: Demand Recommendation =========
   let demandChart = null;
 
   async function recommendDemand(){
@@ -602,7 +592,6 @@
     }
   }
 
-  // ========= ACTIVE NAV HIGHLIGHT =========
   const navLinks = document.querySelectorAll(".nav-item");
   function setActiveByHash(){
     const hash = window.location.hash || "#todayStats";
@@ -610,7 +599,6 @@
   }
   window.addEventListener("hashchange", setActiveByHash);
 
-  // ========= SET DATE VALIDATION (prevent past dates) =========
   function setMinDates(){
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
@@ -619,7 +607,6 @@
     document.getElementById("demandDatePick").min = todayStr;
   }
 
-  // ========= INIT =========
   window.addEventListener("load", function(){
     setMinDates();
     setActiveByHash();

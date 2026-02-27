@@ -6,20 +6,15 @@ import joblib
 
 app = FastAPI(title="Vehicle Rental Revenue Prediction API", version="2.1")
 
-# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # coursework
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent  # /backend
-
-# =========================
-# ✅ EXISTING MODEL (Daily Revenue)
-# =========================
+BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR.parent / "models" / "best_revenue_model.pkl"
 
 if not MODEL_PATH.exists():
@@ -34,6 +29,7 @@ METRICS = bundle.get("metrics", {})
 
 def _norm_vehicle_name(name: str) -> str:
     return str(name).strip().lower().replace(" ", "")
+
 
 def make_features_from_date(date_str: str) -> pd.DataFrame:
     d = pd.to_datetime(date_str)
@@ -79,9 +75,6 @@ def _predict_vehicle_raw(
     return max(0.0, pred)
 
 
-# =========================
-# ✅ EXISTING MODEL (Vehicle + Date Revenue)
-# =========================
 VEHICLE_MODEL_PATH = BASE_DIR.parent / "models" / "best_vehicle_revenue_model.pkl"
 
 vehicle_model = None
@@ -102,9 +95,6 @@ else:
     print(f"⚠ Vehicle model not found: {VEHICLE_MODEL_PATH}")
 
 
-# =========================
-# ✅ NEW MODEL (Demand / Bookings Count)
-# =========================
 DEMAND_MODEL_PATH = BASE_DIR.parent / "models" / "best_demand_model.pkl"
 
 demand_model = None
@@ -143,17 +133,14 @@ def make_demand_features(date_str: str, vehicle_type: str) -> pd.DataFrame:
 
     row = {col: 0 for col in demand_features}
 
-    # Set numeric time features if present
     if "Year" in row: row["Year"] = year
     if "Month" in row: row["Month"] = month
     if "DayOfWeek" in row: row["DayOfWeek"] = day_of_week
     if "IsSeason" in row: row["IsSeason"] = is_season
     if "IsWeekend" in row: row["IsWeekend"] = is_weekend
 
-    # One-hot for vehicle type (pd.get_dummies keeps spaces)
     dummy_col = f"VehicleType_{vehicle_type}"
     if dummy_col not in row:
-        # try soft match by stripping spaces (just in case)
         possible = [c for c in row.keys() if c.replace(" ", "").lower() == dummy_col.replace(" ", "").lower()]
         if possible:
             dummy_col = possible[0]
@@ -174,7 +161,6 @@ def health():
 
 @app.get("/models/info")
 def models_info():
-    # Keep existing output unchanged + add demand model info safely
     return {
         "features": FEATURES,
         "season_months": sorted(list(SEASON_MONTHS)),
@@ -182,8 +168,6 @@ def models_info():
 
         "vehicle_model_loaded": vehicle_model is not None,
         "vehicle_model_metrics": vehicle_metrics,
-
-        # ✅ NEW
         "demand_model_loaded": demand_model is not None,
         "demand_model_metrics": demand_metrics,
         "demand_vehicle_types": demand_vehicle_types
@@ -228,7 +212,6 @@ def predict_vehicle_revenue(
 
         X_total = make_features_from_date(date)
         total_pred = max(0.0, float(model.predict(X_total)[0]))
-
         supported_types = _get_supported_vehicle_types()
         if vehicle_type not in supported_types:
             return {"error": f"Invalid vehicle_type: {vehicle_type}. Use /vehicles to see valid values."}
@@ -264,9 +247,6 @@ def predict_vehicle_revenue(
         return {"error": str(e)}
 
 
-# =========================
-# ✅ NEW: Demand prediction (date + vehicle)
-# =========================
 @app.get("/predict/demand")
 def predict_demand(
     date: str = Query(..., description="Format: YYYY-MM-DD"),
@@ -278,8 +258,6 @@ def predict_demand(
 
         X = make_demand_features(date, vehicle_type)
         pred = float(demand_model.predict(X)[0])
-
-        # bookings count should not be negative
         pred = max(0.0, pred)
 
         d = pd.to_datetime(date)
@@ -298,9 +276,6 @@ def predict_demand(
         return {"error": str(e)}
 
 
-# =========================
-# ✅ NEW: Demand-based recommendation (date only)
-# =========================
 @app.get("/recommend/demand")
 def recommend_by_demand(
     date: str = Query(..., description="Format: YYYY-MM-DD")
@@ -315,7 +290,6 @@ def recommend_by_demand(
             p = float(demand_model.predict(X)[0])
             preds.append({"vehicle_type": vt, "predicted_bookings": max(0.0, p)})
 
-        # pick best
         best = max(preds, key=lambda x: x["predicted_bookings"])
         recommended = best["vehicle_type"]
 
