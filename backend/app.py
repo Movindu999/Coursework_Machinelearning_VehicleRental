@@ -31,6 +31,10 @@ FEATURES = bundle.get("features", ["Year", "Month", "IsSeason", "IsWeekend"])
 SEASON_MONTHS = set(bundle.get("season_months", [10, 11, 12, 1, 2, 3]))
 METRICS = bundle.get("metrics", {})
 
+
+def _norm_vehicle_name(name: str) -> str:
+    return str(name).strip().lower().replace(" ", "")
+
 def make_features_from_date(date_str: str) -> pd.DataFrame:
     d = pd.to_datetime(date_str)
     year = int(d.year)
@@ -38,6 +42,41 @@ def make_features_from_date(date_str: str) -> pd.DataFrame:
     is_weekend = 1 if d.weekday() >= 5 else 0
     is_season = 1 if month in SEASON_MONTHS else 0
     return pd.DataFrame([[year, month, is_season, is_weekend]], columns=FEATURES)
+
+
+def _get_supported_vehicle_types() -> list:
+    if vehicle_le is not None:
+        classes = [str(v) for v in list(vehicle_le.classes_)]
+        return [v for v in classes if _norm_vehicle_name(v) != "all"]
+    return ["Car", "Bike", "Tuk Tuk"]
+
+
+def _predict_vehicle_raw(
+    date: str,
+    vehicle_type: str,
+    year: int,
+    month: int,
+    is_season: int,
+    is_weekend: int,
+    base_pred: float,
+) -> float:
+    if vehicle_model is not None and vehicle_le is not None:
+        classes = list(vehicle_le.classes_)
+        if vehicle_type not in classes:
+            raise ValueError(f"Invalid vehicle_type: {vehicle_type}. Use /vehicles to see valid values.")
+
+        vehicle_encoded = int(vehicle_le.transform([vehicle_type])[0])
+        X = pd.DataFrame(
+            [[year, month, is_season, is_weekend, vehicle_encoded]],
+            columns=vehicle_features
+        )
+        pred = float(vehicle_model.predict(X)[0])
+    else:
+        multipliers = {"Car": 1.2, "Bike": 0.6, "Tuk Tuk": 0.8}
+        multiplier = multipliers.get(vehicle_type, 1.0)
+        pred = base_pred * multiplier
+
+    return max(0.0, pred)
 
 
 # =========================
@@ -187,25 +226,31 @@ def predict_vehicle_revenue(
         is_weekend = 1 if d.weekday() >= 5 else 0
         is_season = 1 if month in SEASON_MONTHS else 0
 
-        if vehicle_model is not None and vehicle_le is not None:
-            if vehicle_type not in list(vehicle_le.classes_):
-                return {"error": f"Invalid vehicle_type: {vehicle_type}. Use /vehicles to see valid values."}
+        X_total = make_features_from_date(date)
+        total_pred = max(0.0, float(model.predict(X_total)[0]))
 
-            vehicle_encoded = int(vehicle_le.transform([vehicle_type])[0])
+        supported_types = _get_supported_vehicle_types()
+        if vehicle_type not in supported_types:
+            return {"error": f"Invalid vehicle_type: {vehicle_type}. Use /vehicles to see valid values."}
 
-            X = pd.DataFrame(
-                [[year, month, is_season, is_weekend, vehicle_encoded]],
-                columns=vehicle_features
+        raw_predictions = {
+            vt: _predict_vehicle_raw(
+                date=date,
+                vehicle_type=vt,
+                year=year,
+                month=month,
+                is_season=is_season,
+                is_weekend=is_weekend,
+                base_pred=total_pred,
             )
+            for vt in supported_types
+        }
 
-            pred = float(vehicle_model.predict(X)[0])
+        raw_sum = sum(raw_predictions.values())
+        if raw_sum > 0:
+            pred = (raw_predictions[vehicle_type] / raw_sum) * total_pred
         else:
-            X = make_features_from_date(date)
-            base_pred = float(model.predict(X)[0])
-
-            multipliers = {"Car": 1.2, "Bike": 0.6, "Tuk Tuk": 0.8}
-            multiplier = multipliers.get(vehicle_type, 1.0)
-            pred = base_pred * multiplier
+            pred = 0.0
 
         return {
             "date": date,
